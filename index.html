@@ -141,6 +141,12 @@
      #activity {
     line-height: 1.8;
   }
+  .responsive-line {
+    border: none;
+    border-top: 1px dashed #ccc;
+    width: 100%;
+    margin: 10px 0;
+  }
    </style>
    <!-- Tesseract.js (OCR) -->
    <script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/2.1.4/tesseract.min.js"></script>
@@ -242,12 +248,13 @@
  
        activityData.activities.forEach((act, idx) => {
          if (idx > 0) {
-           html += `<div style="margin: 1rem 0;"></div>`;
+           html += `<div style="margin: 2rem 0;"></div>`;
          }
-         html += `<h4>${act.type}</h4>`;
- 
+         //html += `<h4>${act.type}</h4>`;
+         html += `<hr class="responsive-line">`;
+
          // 가로 전체 밑줄
-         const lineLen = 80;
+         const lineLen = 90;
          let fullLine = "";
          for(let k=0;k<lineLen;k++){ fullLine+="_"; }
  
