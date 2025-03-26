@@ -70,7 +70,8 @@
       background: #ffffff;
       box-shadow: 0px 2px 4px rgba(0,0,0,0.1);
     }
-    textarea, input[type="file"] {
+    textarea,
+    input[type="file"] {
       width: 100%;
       margin-bottom: 15px;
       font-size: 16px;
@@ -105,6 +106,7 @@
       color: red;
       font-weight: bold;
     }
+    /* 인쇄시 숨기고 싶은 요소 */
     @media print {
       .tabs, button, #activity-loading-indicator {
         display: none !important;
@@ -137,6 +139,27 @@
       background-color: #f0f0f0;
       border-radius: 5px;
       line-height: 1.6;
+      /* 아래 속성들로 자동 줄바꿈 (강제) */
+      white-space: pre-wrap;       /* 줄바꿈 보존 + wrap */
+      word-wrap: break-word;       /* 단어 단위로 끊기 */
+      overflow-wrap: break-word;   /* 긴 단어도 줄바꿈 */
+    }
+    .full-line {
+      margin: 8px 0;
+      display: block;
+      width: 100%;
+      border: none;
+      border-bottom: 2px dotted #ccc;
+    }
+    .toggle-container {
+      display: inline-flex;
+      align-items: center;
+      margin-left: 10px;
+    }
+    .toggle-container label {
+      margin-left: 5px;
+      font-weight: normal;
+      font-size: 14px;
     }
   </style>
   <!-- Tesseract.js (OCR) -->
@@ -175,8 +198,10 @@
       }
     }
 
-    // 활동 생성
     let activityData = null;
+    let isKoreanOn_BinCan = false;  // 빈 칸 채우기 국문 on/off 상태 (기본 off)
+
+    // 활동 생성
     async function generateActivity() {
       const passage = document.getElementById("passage").value.trim();
       if (!passage) {
@@ -193,7 +218,8 @@
       document.getElementById("activity-loading-indicator").style.display = "block";
 
       try {
-        const resp = await fetch("https://readingactivity.sehyunglee2015.workers.dev/api/activity", {
+        // 이 부분에 API 경로 수정 필요 (새 Worker 주소)
+        const resp = await fetch("https://readingquiz.sehyunglee2015.workers.dev/api/activity", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -239,20 +265,31 @@
         if (idx > 0) {
           html += `<div style="margin: 1rem 0;"></div>`;
         }
-        html += `<h4>${act.type}</h4>`;
 
-        // 가로 전체 밑줄
+        // 빈 칸 채우기 -> 국문 on/off 표시
+        if (act.type === "빈 칸 채우기") {
+          html += `
+            <h4 style="display:inline-block;">${act.type}</h4>
+            <div class="toggle-container">
+              <input type="checkbox" id="toggleKorean" onchange="toggleKoreanBinCan()" ${isKoreanOn_BinCan ? "checked" : ""}/>
+              <label for="toggleKorean">국문 On/Off</label>
+            </div>
+          `;
+        } else {
+          html += `<h4>${act.type}</h4>`;
+        }
+
+        // 가로 전체 밑줄 -> 대신 .full-line 클래스로 사용
         const lineLen = 80;
-        let fullLine = "";
-        for(let k=0;k<lineLen;k++){ fullLine+="_"; }
+        let fullLine = "<span class='full-line'></span>";
 
         // 단어 및 주요 표현 익히기
         if (act.type === "단어 및 주요 표현 익히기" && act.items) {
           act.items.forEach((item, i) => {
             html += `
-              <p style="margin-bottom:10px;">
+              <p style="margin-bottom:10px;word-wrap:break-word;white-space:pre-wrap;">
                 ${i+1}) <strong>${item.vocab}</strong>: ${item.meaning}
-                <br/>${fullLine}
+                ${fullLine}
               </p>
             `;
           });
@@ -261,14 +298,14 @@
         else if (act.type === "영어 문장 해석하기" && act.sentences) {
           act.sentences.forEach((s, i) => {
             html += `
-              <p style="margin-bottom:10px;">
+              <p style="margin-bottom:10px;word-wrap:break-word;white-space:pre-wrap;">
                 ${i+1}) ${s.original}
-                <br/>${fullLine}
+                ${fullLine}
               </p>
             `;
             if (s.answer) {
               if (showAnswers) {
-                html += `<p style="color:blue;">[정답] ${s.answer}</p>`;
+                html += `<p style="color:blue;word-wrap:break-word;white-space:pre-wrap;">[정답] ${s.answer}</p>`;
               } else {
                 totalAnswers.push(`[영문해석 ${i+1}] ${s.answer}`);
               }
@@ -278,10 +315,13 @@
         // 빈 칸 채우기
         else if (act.type === "빈 칸 채우기" && act.questions) {
           act.questions.forEach((qItem, i) => {
+            // 국문 on/off 
+            const korPart = (isKoreanOn_BinCan && qItem.korean) ? `<p style="color:#555;">${qItem.korean}</p>` : "";
             html += `
-              <p style="margin-bottom:10px;">
+              <p style="margin-bottom:10px;word-wrap:break-word;white-space:pre-wrap;">
                 ${i+1}) ${qItem.sentence}
               </p>
+              ${korPart}
             `;
             if(qItem.solution) {
               if(showAnswers) {
@@ -296,9 +336,9 @@
         else if (act.type === "우리말 영어로 번역하기" && act.list) {
           act.list.forEach((row, i) => {
             html += `
-              <p style="margin-bottom:10px;">
+              <p style="margin-bottom:10px;word-wrap:break-word;white-space:pre-wrap;">
                 ${i+1}) ${row.korean}
-                <br/>${fullLine}
+                ${fullLine}
               </p>
             `;
             if (row.answer) {
@@ -314,10 +354,10 @@
         else if (act.type === "문법 변형 활동" && act.examples) {
           act.examples.forEach((ex, i) => {
             html += `
-              <p style="margin-bottom:10px;">
+              <p style="margin-bottom:10px;word-wrap:break-word;white-space:pre-wrap;">
                 ${i+1}) [${ex.instruction}]<br/>
                 원문: ${ex.original}
-                <br/>${fullLine}
+                ${fullLine}
               </p>
             `;
             if(ex.answer) {
@@ -356,7 +396,7 @@
           </div>
         `;
         if(totalAnswers.length>0){
-          html += `<hr/><h4>정답 모음</h4><pre>`;
+          html += `<hr/><h4>정답 모음</h4><pre style="word-wrap:break-word;white-space:pre-wrap;">`;
           totalAnswers.forEach(ans => {
             html += ans + "\n";
           });
@@ -367,6 +407,11 @@
       document.getElementById("activityOutputView").innerHTML = html;
     }
 
+    function toggleKoreanBinCan(){
+      isKoreanOn_BinCan = !isKoreanOn_BinCan;
+      renderActivity(false);
+    }
+
     function showActivityAnswers() {
       renderActivity(true);
     }
@@ -375,22 +420,14 @@
       window.print();
     }
 
-    function showSection(sectionId) {
-      const sections = ["upload", "activity", "activityCheck"];
-      sections.forEach(id => {
-        const sec = document.getElementById(id);
-        if (sec) {
-          sec.style.display = (id === sectionId) ? "block" : "none";
-        }
-      });
-    }
-    // 페이지 로드시 업로드 섹션 표시
+    // 초기 진입
     window.onload = () => {
       showSection('upload');
     };
     window.handleImageUpload = handleImageUpload;
     window.generateActivity = generateActivity;
     window.showActivityAnswers = showActivityAnswers;
+    window.toggleKoreanBinCan = toggleKoreanBinCan;
     window.renderActivity = renderActivity;
     window.printPage = printPage;
   </script>
@@ -410,7 +447,6 @@
       <textarea id="passage" placeholder="지문을 입력하세요..." rows="6"></textarea>
       <input type="file" id="imageInput" accept="image/*">
       <button onclick="handleImageUpload()"><i class="fas fa-camera"></i> 이미지에서 텍스트 추출</button>
-      <!-- 요청사항: "입력 완료" 버튼 복원 -->
       <button onclick="showSection('activity')"><i class="fas fa-check"></i> 입력 완료</button>
     </div>
     
