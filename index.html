@@ -1,477 +1,442 @@
 <!DOCTYPE html>
-<html lang="ko">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>영어 학습 활동 생성기</title>
-  <!-- Font Awesome for icons -->
-  <link
-    rel="stylesheet"
-    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"
-    crossorigin="anonymous"
-  />
-  <style>
-    /* 기본 초기화 */
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
-    html, body {
-      margin: 0;
-      padding: 0;
-      height: 100%;
-      font-family: Arial, sans-serif;
-      -webkit-font-smoothing: antialiased;
-    }
-    body {
-      background-color: #f8f9fa;
-    }
-    .container {
-      max-width: 900px;
-      margin: 20px auto;
-      background: #fff;
-      padding: 20px;
-      border-radius: 10px;
-      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-    }
-    h1 {
-      text-align: center;
-      color: #007bff;
-      margin-bottom: 20px;
-    }
-    .tabs {
-      display: flex;
-      justify-content: center;
-      background: #007bff;
-      padding: 10px;
-      border-radius: 8px;
-      margin-bottom: 20px;
-      flex-wrap: wrap;
-    }
-    .tabs button {
-      background: none;
-      border: none;
-      color: white;
-      padding: 10px 20px;
-      cursor: pointer;
-      font-size: 16px;
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-    }
-    .tabs button:hover {
-      background: rgba(255,255,255,0.2);
-    }
-    .section {
-      margin-top: 20px;
-      padding: 20px;
-      border-radius: 8px;
-      background: #ffffff;
-      box-shadow: 0px 2px 4px rgba(0,0,0,0.1);
-    }
-    textarea,
-    input[type="file"] {
-      width: 100%;
-      margin-bottom: 15px;
-      font-size: 16px;
-      padding: 8px;
-    }
-    label {
-      font-size: 16px;
-      margin-right: 10px;
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-    }
-    button {
-      background-color: #007bff;
-      color: white;
-      border: none;
-      padding: 10px 15px;
-      border-radius: 5px;
-      cursor: pointer;
-      font-size: 16px;
-      margin-top: 10px;
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-    }
-    button:hover {
-      background-color: #0056b3;
-    }
-    #activity-loading-indicator {
-      display: none;
-      margin-top: 10px;
-      color: red;
-      font-weight: bold;
-    }
-    /* 인쇄시 숨기고 싶은 요소 */
-    @media print {
-      .tabs, button, #activity-loading-indicator {
-        display: none !important;
-      }
-      .container {
-        box-shadow: none;
-      }
-    }
-    @media (max-width: 600px) {
-      .container {
-        margin: 10px auto;
-        padding: 15px;
-      }
-      .tabs button {
-        font-size: 14px;
-        padding: 8px 16px;
-        margin-bottom: 5px;
-      }
-      .section {
-        margin-top: 10px;
-        padding: 15px;
-      }
-      button {
-        font-size: 14px;
-      }
-    }
-    #activityOutputView {
-      margin-top: 20px;
-      padding: 10px;
-      background-color: #f0f0f0;
-      border-radius: 5px;
-      line-height: 1.6;
-      /* 아래 속성들로 자동 줄바꿈 (강제) */
-      white-space: pre-wrap;       /* 줄바꿈 보존 + wrap */
-      word-wrap: break-word;       /* 단어 단위로 끊기 */
-      overflow-wrap: break-word;   /* 긴 단어도 줄바꿈 */
-    }
-    .full-line {
-      margin: 8px 0;
-      display: block;
-      width: 100%;
-      border: none;
-      border-bottom: 2px dotted #ccc;
-    }
-    .toggle-container {
-      display: inline-flex;
-      align-items: center;
-      margin-left: 10px;
-    }
-    .toggle-container label {
-      margin-left: 5px;
-      font-weight: normal;
-      font-size: 14px;
-    }
-  </style>
-  <!-- Tesseract.js (OCR) -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/2.1.4/tesseract.min.js"></script>
-  <script>
-    function showSection(sectionId) {
-      const sections = ["upload", "activity", "activityCheck"];
-      sections.forEach(id => {
-        const sec = document.getElementById(id);
-        if (sec) {
-          sec.style.display = (id === sectionId) ? "block" : "none";
-        }
-      });
-    }
-
-    // 이미지 -> OCR
-    async function handleImageUpload() {
-      const imageInput = document.getElementById('imageInput');
-      const passageTextarea = document.getElementById('passage');
-      if (imageInput.files && imageInput.files[0]) {
-        const imageFile = imageInput.files[0];
-        try {
-          const { data: { text } } = await Tesseract.recognize(
-            imageFile,
-            'eng',
-            { logger: m => console.log(m) }
-          );
-          passageTextarea.value = text;
-          alert('이미지에서 텍스트 추출 완료!');
-        } catch (error) {
-          console.error("OCR Error:", error);
-          alert('이미지에서 텍스트 추출 실패: ' + error);
-        }
-      } else {
-        alert('이미지 파일을 선택해주세요.');
-      }
-    }
-
-    let activityData = null;
-    let isKoreanOn_BinCan = false;  // 빈 칸 채우기 국문 on/off 상태 (기본 off)
-
-    // 활동 생성
-    async function generateActivity() {
-      const passage = document.getElementById("passage").value.trim();
-      if (!passage) {
-        alert("지문을 먼저 업로드하거나 입력하세요!");
-        return;
-      }
-      const checks = document.querySelectorAll('.activity-type:checked');
-      if (!checks.length) {
-        alert("최소 한 개 이상의 활동을 선택해주세요.");
-        return;
-      }
-      const selectedActs = Array.from(checks).map(c => c.value);
-
-      document.getElementById("activity-loading-indicator").style.display = "block";
-
-      try {
-        // 이 부분에 API 경로 수정 필요 (새 Worker 주소)
-        const resp = await fetch("https://readingactivity.sehyunglee2015.workers.dev/api/activity", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            passage,
-            activities: selectedActs
-          })
-        });
-        if (!resp.ok) {
-          const msg = await resp.text();
-          throw new Error(`활동 생성 API 오류: ${resp.status} / ${msg}`);
-        }
-        const data = await resp.json();
-        if (data.error) {
-          throw new Error(data.error);
-        }
-        const result = data.result;
-        if (!result || !Array.isArray(result.activities)) {
-          throw new Error("올바르지 않은 활동 데이터");
-        }
-
-        activityData = result;
-        document.getElementById("activity-loading-indicator").style.display = "none";
-        showSection('activityCheck');
-        renderActivity(false);
-      } catch (err) {
-        console.error("활동 생성 에러:", err);
-        alert("활동 생성 실패: " + err.message);
-        document.getElementById("activity-loading-indicator").style.display = "none";
-      }
-    }
-
-    function renderActivity(showAnswers) {
-      if (!activityData) {
-        document.getElementById("activityOutputView").innerHTML = "<p>아직 생성된 활동이 없습니다.</p>";
-        return;
-      }
-      const outputDiv = document.getElementById("activityOutputView");
-      let html = "<h3>활동 결과</h3>";
-
-      let totalAnswers = [];
-
-      activityData.activities.forEach((act, idx) => {
-        if (idx > 0) {
-          html += `<div style="margin: 1rem 0;"></div>`;
-        }
-
-        // 빈 칸 채우기 -> 국문 on/off 표시
-        if (act.type === "빈 칸 채우기") {
-          html += `
-            <h4 style="display:inline-block;">${act.type}</h4>
-            <div class="toggle-container">
-              <input type="checkbox" id="toggleKorean" onchange="toggleKoreanBinCan()" ${isKoreanOn_BinCan ? "checked" : ""}/>
-              <label for="toggleKorean">국문 On/Off</label>
-            </div>
-          `;
-        } else {
-          html += `<h4>${act.type}</h4>`;
-        }
-
-        // 가로 전체 밑줄 -> 대신 .full-line 클래스로 사용
-        const lineLen = 80;
-        let fullLine = "<span class='full-line'></span>";
-
-        // 단어 및 주요 표현 익히기
-        if (act.type === "단어 및 주요 표현 익히기" && act.items) {
-          act.items.forEach((item, i) => {
-            html += `
-              <p style="margin-bottom:10px;word-wrap:break-word;white-space:pre-wrap;">
-                ${i+1}) <strong>${item.vocab}</strong>: ${item.meaning}
-                ${fullLine}
-              </p>
-            `;
-          });
-        }
-        // 영어 문장 해석하기
-        else if (act.type === "영어 문장 해석하기" && act.sentences) {
-          act.sentences.forEach((s, i) => {
-            html += `
-              <p style="margin-bottom:10px;word-wrap:break-word;white-space:pre-wrap;">
-                ${i+1}) ${s.original}
-                ${fullLine}
-              </p>
-            `;
-            if (s.answer) {
-              if (showAnswers) {
-                html += `<p style="color:blue;word-wrap:break-word;white-space:pre-wrap;">[정답] ${s.answer}</p>`;
-              } else {
-                totalAnswers.push(`[영문해석 ${i+1}] ${s.answer}`);
-              }
-            }
-          });
-        }
-        // 빈 칸 채우기
-        else if (act.type === "빈 칸 채우기" && act.questions) {
-          act.questions.forEach((qItem, i) => {
-            // 국문 on/off 
-            const korPart = (isKoreanOn_BinCan && qItem.korean) ? `<p style="color:#555;">${qItem.korean}</p>` : "";
-            html += `
-              <p style="margin-bottom:10px;word-wrap:break-word;white-space:pre-wrap;">
-                ${i+1}) ${qItem.sentence}
-              </p>
-              ${korPart}
-            `;
-            if(qItem.solution) {
-              if(showAnswers) {
-                html += `<p style="color:blue;">[정답] ${qItem.solution}</p>`;
-              } else {
-                totalAnswers.push(`[빈칸 ${i+1}] ${qItem.solution}`);
-              }
-            }
-          });
-        }
-        // 우리말 영어로 번역하기
-        else if (act.type === "우리말 영어로 번역하기" && act.list) {
-          act.list.forEach((row, i) => {
-            html += `
-              <p style="margin-bottom:10px;word-wrap:break-word;white-space:pre-wrap;">
-                ${i+1}) ${row.korean}
-                ${fullLine}
-              </p>
-            `;
-            if (row.answer) {
-              if (showAnswers) {
-                html += `<p style="color:blue;">[정답] ${row.answer}</p>`;
-              } else {
-                totalAnswers.push(`[한->영 ${i+1}] ${row.answer}`);
-              }
-            }
-          });
-        }
-        // 문법 변형 활동
-        else if (act.type === "문법 변형 활동" && act.examples) {
-          act.examples.forEach((ex, i) => {
-            html += `
-              <p style="margin-bottom:10px;word-wrap:break-word;white-space:pre-wrap;">
-                ${i+1}) [${ex.instruction}]<br/>
-                원문: ${ex.original}
-                ${fullLine}
-              </p>
-            `;
-            if(ex.answer) {
-              if(showAnswers) {
-                html += `<p style="color:blue;">[정답] ${ex.answer}</p>`;
-              } else {
-                totalAnswers.push(`[문법변형 ${i+1}] ${ex.answer}`);
-              }
-            }
-          });
-        }
-        else {
-          html += `<p>해당 활동에 대한 데이터가 없습니다.</p>`;
-        }
-      });
-
-      if(!showAnswers){
-        html += `
-          <div style="margin-top:20px;">
-            <button onclick="showActivityAnswers()">
-              <i class="fas fa-eye"></i> 정답
-            </button>
-            <button onclick="printPage()">
-              <i class="fas fa-print"></i> 웹 페이지 인쇄
-            </button>
-          </div>
-        `;
-      }
-      else {
-        // 정답 모드
-        html += `
-          <div style="margin-top:20px;">
-            <button onclick="printPage()">
-              <i class="fas fa-print"></i> 웹 페이지 인쇄
-            </button>
-          </div>
-        `;
-        if(totalAnswers.length>0){
-          html += `<hr/><h4>정답 모음</h4><pre style="word-wrap:break-word;white-space:pre-wrap;">`;
-          totalAnswers.forEach(ans => {
-            html += ans + "\n";
-          });
-          html += `</pre>`;
-        }
-      }
-
-      document.getElementById("activityOutputView").innerHTML = html;
-    }
-
-    function toggleKoreanBinCan(){
-      isKoreanOn_BinCan = !isKoreanOn_BinCan;
-      renderActivity(false);
-    }
-
-    function showActivityAnswers() {
-      renderActivity(true);
-    }
-
-    function printPage(){
-      window.print();
-    }
-
-    // 초기 진입
-    window.onload = () => {
-      showSection('upload');
-    };
-    window.handleImageUpload = handleImageUpload;
-    window.generateActivity = generateActivity;
-    window.showActivityAnswers = showActivityAnswers;
-    window.toggleKoreanBinCan = toggleKoreanBinCan;
-    window.renderActivity = renderActivity;
-    window.printPage = printPage;
-  </script>
-</head>
-<body>
-  <div class="container">
-    <h1>영어 학습 활동 생성기</h1>
-    <div class="tabs">
-      <button onclick="showSection('upload')"><i class="fas fa-upload"></i> 지문 업로드</button>
-      <button onclick="showSection('activity')"><i class="fas fa-chalkboard-teacher"></i> 활동 생성</button>
-      <button onclick="showSection('activityCheck')"><i class="fas fa-check-square"></i> 활동 확인</button>
-    </div>
-
-    <!-- 지문 업로드 섹션 -->
-    <div id="upload" class="section">
-      <h2><i class="fas fa-file-alt"></i> 지문 업로드</h2>
-      <textarea id="passage" placeholder="지문을 입력하세요..." rows="6"></textarea>
-      <input type="file" id="imageInput" accept="image/*">
-      <button onclick="handleImageUpload()"><i class="fas fa-camera"></i> 이미지에서 텍스트 추출</button>
-      <button onclick="showSection('activity')"><i class="fas fa-check"></i> 입력 완료</button>
-    </div>
-    
-    <!-- 활동 생성 섹션 -->
-    <div id="activity" class="section" style="display:none;">
-      <h2><i class="fas fa-chalkboard-teacher"></i> 활동 생성</h2>
-      <p>생성할 활동을 선택하세요:</p>
-      <div style="margin-bottom: 15px;">
-        <label><input type="checkbox" class="activity-type" value="단어 및 주요 표현 익히기"> 단어 및 주요 표현 익히기</label><br/>
-        <label><input type="checkbox" class="activity-type" value="영어 문장 해석하기"> 영어 문장 해석하기</label><br/>
-        <label><input type="checkbox" class="activity-type" value="빈 칸 채우기"> 빈 칸 채우기</label><br/>
-        <label><input type="checkbox" class="activity-type" value="우리말 영어로 번역하기"> 우리말 영어로 번역하기</label><br/>
-        <label><input type="checkbox" class="activity-type" value="문법 변형 활동"> 문법 변형 활동</label><br/>
-      </div>
-      <button onclick="generateActivity()"><i class="fas fa-play"></i> 활동 생성</button>
-      <div id="activity-loading-indicator">
-        활동 생성 중... <i class="fas fa-hourglass-half"></i>
-      </div>
-    </div>
-
-    <!-- 활동 확인 섹션 -->
-    <div id="activityCheck" class="section" style="display:none;">
-      <h2><i class="fas fa-check-square"></i> 활동 확인</h2>
-      <div id="activityOutputView"></div>
-    </div>
-  </div>
-</body>
-</html>
+ <html lang="ko">
+ <head>
+   <meta charset="UTF-8" />
+   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+   <title>영어 학습 활동 생성기</title>
+   <!-- Font Awesome for icons -->
+   <link
+     rel="stylesheet"
+     href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"
+     crossorigin="anonymous"
+   />
+   <style>
+     /* 기본 초기화 */
+     * {
+       box-sizing: border-box;
+       margin: 0;
+       padding: 0;
+     }
+     html, body {
+       margin: 0;
+       padding: 0;
+       height: 100%;
+       font-family: Arial, sans-serif;
+       -webkit-font-smoothing: antialiased;
+     }
+     body {
+       background-color: #f8f9fa;
+     }
+     .container {
+       max-width: 900px;
+       margin: 20px auto;
+       background: #fff;
+       padding: 20px;
+       border-radius: 10px;
+       box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+     }
+     h1 {
+       text-align: center;
+       color: #007bff;
+       margin-bottom: 20px;
+     }
+     .tabs {
+       display: flex;
+       justify-content: center;
+       background: #007bff;
+       padding: 10px;
+       border-radius: 8px;
+       margin-bottom: 20px;
+       flex-wrap: wrap;
+     }
+     .tabs button {
+       background: none;
+       border: none;
+       color: white;
+       padding: 10px 20px;
+       cursor: pointer;
+       font-size: 16px;
+       display: inline-flex;
+       align-items: center;
+       gap: 5px;
+     }
+     .tabs button:hover {
+       background: rgba(255,255,255,0.2);
+     }
+     .section {
+       margin-top: 20px;
+       padding: 20px;
+       border-radius: 8px;
+       background: #ffffff;
+       box-shadow: 0px 2px 4px rgba(0,0,0,0.1);
+     }
+     textarea, input[type="file"] {
+       width: 100%;
+       margin-bottom: 15px;
+       font-size: 16px;
+       padding: 8px;
+     }
+     label {
+       font-size: 16px;
+       margin-right: 10px;
+       display: inline-flex;
+       align-items: center;
+       gap: 5px;
+     }
+     button {
+       background-color: #007bff;
+       color: white;
+       border: none;
+       padding: 10px 15px;
+       border-radius: 5px;
+       cursor: pointer;
+       font-size: 16px;
+       margin-top: 10px;
+       display: inline-flex;
+       align-items: center;
+       gap: 5px;
+     }
+     button:hover {
+       background-color: #0056b3;
+     }
+     #activity-loading-indicator {
+       display: none;
+       margin-top: 10px;
+       color: red;
+       font-weight: bold;
+     }
+     @media print {
+       .tabs, button, #activity-loading-indicator {
+         display: none !important;
+       }
+       .container {
+         box-shadow: none;
+       }
+     }
+     @media (max-width: 600px) {
+       .container {
+         margin: 10px auto;
+         padding: 15px;
+       }
+       .tabs button {
+         font-size: 14px;
+         padding: 8px 16px;
+         margin-bottom: 5px;
+       }
+       .section {
+         margin-top: 10px;
+         padding: 15px;
+       }
+       button {
+         font-size: 14px;
+       }
+     }
+     #activityOutputView {
+       margin-top: 20px;
+       padding: 10px;
+       background-color: #f0f0f0;
+       border-radius: 5px;
+       line-height: 1.6;
+     }
+   </style>
+   <!-- Tesseract.js (OCR) -->
+   <script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/2.1.4/tesseract.min.js"></script>
+   <script>
+     function showSection(sectionId) {
+       const sections = ["upload", "activity", "activityCheck"];
+       sections.forEach(id => {
+         const sec = document.getElementById(id);
+         if (sec) {
+           sec.style.display = (id === sectionId) ? "block" : "none";
+         }
+       });
+     }
+ 
+     // 이미지 -> OCR
+     async function handleImageUpload() {
+       const imageInput = document.getElementById('imageInput');
+       const passageTextarea = document.getElementById('passage');
+       if (imageInput.files && imageInput.files[0]) {
+         const imageFile = imageInput.files[0];
+         try {
+           const { data: { text } } = await Tesseract.recognize(
+             imageFile,
+             'eng',
+             { logger: m => console.log(m) }
+           );
+           passageTextarea.value = text;
+           alert('이미지에서 텍스트 추출 완료!');
+         } catch (error) {
+           console.error("OCR Error:", error);
+           alert('이미지에서 텍스트 추출 실패: ' + error);
+         }
+       } else {
+         alert('이미지 파일을 선택해주세요.');
+       }
+     }
+ 
+     // 활동 생성
+     let activityData = null;
+     async function generateActivity() {
+       const passage = document.getElementById("passage").value.trim();
+       if (!passage) {
+         alert("지문을 먼저 업로드하거나 입력하세요!");
+         return;
+       }
+       const checks = document.querySelectorAll('.activity-type:checked');
+       if (!checks.length) {
+         alert("최소 한 개 이상의 활동을 선택해주세요.");
+         return;
+       }
+       const selectedActs = Array.from(checks).map(c => c.value);
+ 
+       document.getElementById("activity-loading-indicator").style.display = "block";
+ 
+       try {
+         const resp = await fetch("https://readingquiz.sehyunglee2015.workers.dev/api/activity", {
+         const resp = await fetch("https://readingactivity.sehyunglee2015.workers.dev/api/activity", {
+           method: "POST",
+           headers: { "Content-Type": "application/json" },
+           body: JSON.stringify({
+             passage,
+             activities: selectedActs
+           })
+         });
+         if (!resp.ok) {
+           const msg = await resp.text();
+           throw new Error(`활동 생성 API 오류: ${resp.status} / ${msg}`);
+         }
+         const data = await resp.json();
+         if (data.error) {
+           throw new Error(data.error);
+         }
+         const result = data.result;
+         if (!result || !Array.isArray(result.activities)) {
+           throw new Error("올바르지 않은 활동 데이터");
+         }
+ 
+         activityData = result;
+         document.getElementById("activity-loading-indicator").style.display = "none";
+         showSection('activityCheck');
+         renderActivity(false);
+       } catch (err) {
+         console.error("활동 생성 에러:", err);
+         alert("활동 생성 실패: " + err.message);
+         document.getElementById("activity-loading-indicator").style.display = "none";
+       }
+     }
+ 
+     function renderActivity(showAnswers) {
+       if (!activityData) {
+         document.getElementById("activityOutputView").innerHTML = "<p>아직 생성된 활동이 없습니다.</p>";
+         return;
+       }
+       const outputDiv = document.getElementById("activityOutputView");
+       let html = "<h3>활동 결과</h3>";
+ 
+       let totalAnswers = [];
+ 
+       activityData.activities.forEach((act, idx) => {
+         if (idx > 0) {
+           html += `<div style="margin: 1rem 0;"></div>`;
+         }
+         html += `<h4>${act.type}</h4>`;
+ 
+         // 가로 전체 밑줄
+         const lineLen = 80;
+         let fullLine = "";
+         for(let k=0;k<lineLen;k++){ fullLine+="_"; }
+ 
+         // 단어 및 주요 표현 익히기
+         if (act.type === "단어 및 주요 표현 익히기" && act.items) {
+           act.items.forEach((item, i) => {
+             html += `
+               <p style="margin-bottom:10px;">
+                 ${i+1}) <strong>${item.vocab}</strong>: ${item.meaning}
+                 <br/>${fullLine}
+               </p>
+             `;
+           });
+         }
+         // 영어 문장 해석하기
+         else if (act.type === "영어 문장 해석하기" && act.sentences) {
+           act.sentences.forEach((s, i) => {
+             html += `
+               <p style="margin-bottom:10px;">
+                 ${i+1}) ${s.original}
+                 <br/>${fullLine}
+               </p>
+             `;
+             if (s.answer) {
+               if (showAnswers) {
+                 html += `<p style="color:blue;">[정답] ${s.answer}</p>`;
+               } else {
+                 totalAnswers.push(`[영문해석 ${i+1}] ${s.answer}`);
+               }
+             }
+           });
+         }
+         // 빈 칸 채우기
+         else if (act.type === "빈 칸 채우기" && act.questions) {
+           act.questions.forEach((qItem, i) => {
+             html += `
+               <p style="margin-bottom:10px;">
+                 ${i+1}) ${qItem.sentence}
+               </p>
+             `;
+             if(qItem.solution) {
+               if(showAnswers) {
+                 html += `<p style="color:blue;">[정답] ${qItem.solution}</p>`;
+               } else {
+                 totalAnswers.push(`[빈칸 ${i+1}] ${qItem.solution}`);
+               }
+             }
+           });
+         }
+         // 우리말 영어로 번역하기
+         else if (act.type === "우리말 영어로 번역하기" && act.list) {
+           act.list.forEach((row, i) => {
+             html += `
+               <p style="margin-bottom:10px;">
+                 ${i+1}) ${row.korean}
+                 <br/>${fullLine}
+               </p>
+             `;
+             if (row.answer) {
+               if (showAnswers) {
+                 html += `<p style="color:blue;">[정답] ${row.answer}</p>`;
+               } else {
+                 totalAnswers.push(`[한->영 ${i+1}] ${row.answer}`);
+               }
+             }
+           });
+         }
+         // 문법 변형 활동
+         else if (act.type === "문법 변형 활동" && act.examples) {
+           act.examples.forEach((ex, i) => {
+             html += `
+               <p style="margin-bottom:10px;">
+                 ${i+1}) [${ex.instruction}]<br/>
+                 원문: ${ex.original}
+                 <br/>${fullLine}
+               </p>
+             `;
+             if(ex.answer) {
+               if(showAnswers) {
+                 html += `<p style="color:blue;">[정답] ${ex.answer}</p>`;
+               } else {
+                 totalAnswers.push(`[문법변형 ${i+1}] ${ex.answer}`);
+               }
+             }
+           });
+         }
+         else {
+           html += `<p>해당 활동에 대한 데이터가 없습니다.</p>`;
+         }
+       });
+ 
+       if(!showAnswers){
+         html += `
+           <div style="margin-top:20px;">
+             <button onclick="showActivityAnswers()">
+               <i class="fas fa-eye"></i> 정답
+             </button>
+             <button onclick="printPage()">
+               <i class="fas fa-print"></i> 웹 페이지 인쇄
+             </button>
+           </div>
+         `;
+       }
+       else {
+         // 정답 모드
+         html += `
+           <div style="margin-top:20px;">
+             <button onclick="printPage()">
+               <i class="fas fa-print"></i> 웹 페이지 인쇄
+             </button>
+           </div>
+         `;
+         if(totalAnswers.length>0){
+           html += `<hr/><h4>정답 모음</h4><pre>`;
+           totalAnswers.forEach(ans => {
+             html += ans + "\n";
+           });
+           html += `</pre>`;
+         }
+       }
+ 
+       document.getElementById("activityOutputView").innerHTML = html;
+     }
+ 
+     function showActivityAnswers() {
+       renderActivity(true);
+     }
+ 
+     function printPage(){
+       window.print();
+     }
+ 
+     function showSection(sectionId) {
+       const sections = ["upload", "activity", "activityCheck"];
+       sections.forEach(id => {
+         const sec = document.getElementById(id);
+         if (sec) {
+           sec.style.display = (id === sectionId) ? "block" : "none";
+         }
+       });
+     }
+     // 페이지 로드시 업로드 섹션 표시
+     window.onload = () => {
+       showSection('upload');
+     };
+     window.handleImageUpload = handleImageUpload;
+     window.generateActivity = generateActivity;
+     window.showActivityAnswers = showActivityAnswers;
+     window.renderActivity = renderActivity;
+     window.printPage = printPage;
+   </script>
+ </head>
+ <body>
+   <div class="container">
+     <h1>영어 학습 활동 생성기</h1>
+     <div class="tabs">
+       <button onclick="showSection('upload')"><i class="fas fa-upload"></i> 지문 업로드</button>
+       <button onclick="showSection('activity')"><i class="fas fa-chalkboard-teacher"></i> 활동 생성</button>
+       <button onclick="showSection('activityCheck')"><i class="fas fa-check-square"></i> 활동 확인</button>
+     </div>
+ 
+     <!-- 지문 업로드 섹션 -->
+     <div id="upload" class="section">
+       <h2><i class="fas fa-file-alt"></i> 지문 업로드</h2>
+       <textarea id="passage" placeholder="지문을 입력하세요..." rows="6"></textarea>
+       <input type="file" id="imageInput" accept="image/*">
+       <button onclick="handleImageUpload()"><i class="fas fa-camera"></i> 이미지에서 텍스트 추출</button>
+       <!-- 요청사항: "입력 완료" 버튼 복원 -->
+       <button onclick="showSection('activity')"><i class="fas fa-check"></i> 입력 완료</button>
+     </div>
+ 
+     <!-- 활동 생성 섹션 -->
+     <div id="activity" class="section" style="display:none;">
+       <h2><i class="fas fa-chalkboard-teacher"></i> 활동 생성</h2>
+       <p>생성할 활동을 선택하세요:</p>
+       <div style="margin-bottom: 15px;">
+         <label><input type="checkbox" class="activity-type" value="단어 및 주요 표현 익히기"> 단어 및 주요 표현 익히기</label><br/>
+         <label><input type="checkbox" class="activity-type" value="영어 문장 해석하기"> 영어 문장 해석하기</label><br/>
+         <label><input type="checkbox" class="activity-type" value="빈 칸 채우기"> 빈 칸 채우기</label><br/>
+         <label><input type="checkbox" class="activity-type" value="우리말 영어로 번역하기"> 우리말 영어로 번역하기</label><br/>
+         <label><input type="checkbox" class="activity-type" value="문법 변형 활동"> 문법 변형 활동</label><br/>
+       </div>
+       <button onclick="generateActivity()"><i class="fas fa-play"></i> 활동 생성</button>
+       <div id="activity-loading-indicator">
+         활동 생성 중... <i class="fas fa-hourglass-half"></i>
+       </div>
+     </div>
+ 
+     <!-- 활동 확인 섹션 -->
+     <div id="activityCheck" class="section" style="display:none;">
+       <h2><i class="fas fa-check-square"></i> 활동 확인</h2>
+       <div id="activityOutputView"></div>
+     </div>
+   </div>
+ </body>
+ </html>
