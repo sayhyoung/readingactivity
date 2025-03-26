@@ -193,7 +193,7 @@
       document.getElementById("activity-loading-indicator").style.display = "block";
 
       try {
-        const resp = await fetch("https://readingactivity.sehyunglee2015.workers.dev/api/activity", {
+        const resp = await fetch("https://readingquiz.sehyunglee2015.workers.dev/api/activity", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -375,6 +375,19 @@
       window.print();
     }
 
+    function showSection(sectionId) {
+      const sections = ["upload", "activity", "activityCheck"];
+      sections.forEach(id => {
+        const sec = document.getElementById(id);
+        if (sec) {
+          sec.style.display = (id === sectionId) ? "block" : "none";
+        }
+      });
+    }
+    // 페이지 로드시 업로드 섹션 표시
+    window.onload = () => {
+      showSection('upload');
+    };
     window.handleImageUpload = handleImageUpload;
     window.generateActivity = generateActivity;
     window.showActivityAnswers = showActivityAnswers;
@@ -382,11 +395,10 @@
     window.printPage = printPage;
   </script>
 </head>
-<body onload="showSection('upload')">
+<body>
   <div class="container">
     <h1>영어 학습 활동 생성기</h1>
     <div class="tabs">
-      <!-- '문제 생성' / '문제 확인' 메뉴는 삭제 -->
       <button onclick="showSection('upload')"><i class="fas fa-upload"></i> 지문 업로드</button>
       <button onclick="showSection('activity')"><i class="fas fa-chalkboard-teacher"></i> 활동 생성</button>
       <button onclick="showSection('activityCheck')"><i class="fas fa-check-square"></i> 활동 확인</button>
@@ -398,6 +410,8 @@
       <textarea id="passage" placeholder="지문을 입력하세요..." rows="6"></textarea>
       <input type="file" id="imageInput" accept="image/*">
       <button onclick="handleImageUpload()"><i class="fas fa-camera"></i> 이미지에서 텍스트 추출</button>
+      <!-- 요청사항: "입력 완료" 버튼 복원 -->
+      <button onclick="showSection('activity')"><i class="fas fa-check"></i> 입력 완료</button>
     </div>
     
     <!-- 활동 생성 섹션 -->
