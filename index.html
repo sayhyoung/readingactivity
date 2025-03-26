@@ -250,7 +250,7 @@
          if (idx > 0) {
            html += `<div style="margin: 2rem 0;"></div>`;
          }
-         html += `<h4>${act.type}</h4>`;
+         html += `<h4>${idx + 1}. ${act.type}</h4>`;
          html += `<hr class="responsive-line">`;
 
          // 가로 전체 밑줄
@@ -327,7 +327,7 @@
            act.examples.forEach((ex, i) => {
              html += `
                <p style="margin-bottom:10px;">
-                 ${i+1}) [${ex.instruction}]<br/>
+                 ${i+1}) [${ex.instructionKo}]<br/>
                  원문: ${ex.original}
                  <br/>${fullLine}
                </p>
