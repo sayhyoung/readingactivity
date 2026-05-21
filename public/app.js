@@ -390,9 +390,13 @@ function renderActivity() {
         <i class="fas fa-language"></i> 
         ${showingTranslation ? '해석 숨기기' : '해석 보기'}
       </button>` : ''}
+      ${mode === 'exam' ? `
+      <button onclick="downloadExamPdf()">
+        <i class="fas fa-file-pdf"></i> PDF 다운로드
+      </button>` : `
       <button onclick="window.print()">
         <i class="fas fa-print"></i> 인쇄하기
-      </button>
+      </button>`}
     </div>
   `;
 
@@ -491,7 +495,20 @@ function renderExamActivity(act, answersByType, startNumber) {
       // 2. [핵심 수정] 문항별 개별 지문(Passage)이 있으면 여기에 렌더링
       // 어법/삽입/어휘 문제는 이곳에 마킹된 지문이 들어옵니다.
       if (q.passage) {
-        let displayPassage = q.passage
+        // 모델이 같은 문장/문단을 중복 생성한 경우 제거 (특히 주관식 요약문 완성에서 발생)
+        let cleanedPassage = q.passage.trim();
+        const halfLen = Math.floor(cleanedPassage.length / 2);
+        const firstHalf = cleanedPassage.slice(0, halfLen).trim();
+        const secondHalf = cleanedPassage.slice(halfLen).trim();
+        if (firstHalf && firstHalf === secondHalf) {
+          cleanedPassage = firstHalf;
+        }
+        // 줄바꿈으로 구분된 동일 블록 중복 제거
+        const blocks = cleanedPassage.split(/\n\s*\n/).map(b => b.trim()).filter(Boolean);
+        const uniqueBlocks = [...new Set(blocks)];
+        cleanedPassage = uniqueBlocks.join('\n\n');
+
+        let displayPassage = cleanedPassage
           .replace(/\n/g, '<br>')
           .replace(/<br><br>/g, '<br>') // 과도한 줄바꿈 방지
           .replace(/\(a\)/gi, '<span class="target-marker">(a)</span>')
@@ -499,7 +516,7 @@ function renderExamActivity(act, answersByType, startNumber) {
           .replace(/\(c\)/gi, '<span class="target-marker">(c)</span>')
           .replace(/\(d\)/gi, '<span class="target-marker">(d)</span>')
           .replace(/\(e\)/gi, '<span class="target-marker">(e)</span>');
-          
+
         html += `<div class="exam-passage">${displayPassage}</div>`;
       }
       
@@ -535,6 +552,39 @@ function renderExamActivity(act, answersByType, startNumber) {
   }
   
   return { html, nextNumber: currentNumber };
+}
+
+async function downloadExamPdf() {
+  if (!activityData || activityData.mode !== 'exam') {
+    alert('PDF 다운로드는 시험 대비 문항 모드에서만 사용할 수 있습니다.');
+    return;
+  }
+  if (typeof generateExamPdf !== 'function') {
+    alert('PDF 생성기를 불러오지 못했습니다. 페이지를 새로고침해 주세요.');
+    return;
+  }
+  const btn = event && event.currentTarget;
+  let origHtml = '';
+  if (btn) {
+    origHtml = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> PDF 생성 중...';
+  }
+  try {
+    await generateExamPdf({
+      activityData,
+      showingAnswers,
+      showingTranslation,
+    });
+  } catch (err) {
+    console.error('PDF 생성 실패:', err);
+    alert('PDF 생성 중 오류가 발생했습니다: ' + (err && err.message ? err.message : err));
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = origHtml;
+    }
+  }
 }
 
 window.onload = () => { showSection('upload'); };

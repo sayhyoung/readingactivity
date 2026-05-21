@@ -26,7 +26,7 @@ const visionModel = vertexAI.getGenerativeModel({
 
 // 활동 생성용 모델
 const generativeModel = vertexAI.getGenerativeModel({
-  model: "gemini-2.0-flash",
+  model: "gemini-2.5-flash",
   generationConfig: {
     maxOutputTokens: 8192, // 토큰 수 증가
     temperature: 0.4,      // 창의성 약간 증가 (선택지 중복 방지)
@@ -380,7 +380,7 @@ app.post(["/exam", "/api/exam"], async (req, res) => {
         "type": "문장 순서 배열",
         "questions": [{
           "question": "주어진 글 다음에 이어질 순서로 가장 적절한 것은?",
-          "passage": "(A), (B), (C)로 문단이 나뉜 지문",
+          "passage": "[필수] 원문 시작부의 1~2문장을 '주어진 글'로 라벨 없이 먼저 작성 (예: Joseph loved his beard...). 두 줄 공백 후 본문 나머지를 (A), (B), (C)로 라벨링한 3문단을 무작위 순서로 배치. 절대 (A)/(B)/(C)만 출력하지 말 것 — 도입부 1~2문장이 반드시 먼저 와야 함.",
           "choices": ["(A)-(C)-(B)", "(B)-(A)-(C)", "(B)-(C)-(A)", "(C)-(A)-(B)", "(C)-(B)-(A)"],
           "answer": "②",
           "explanation": "해설"
@@ -413,9 +413,9 @@ app.post(["/exam", "/api/exam"], async (req, res) => {
          formatParts.push(`    {
             "type": "주관식 영작",
             "questions": [{
-              "question": "다음 우리말과 일치하도록 괄호 안의 단어를 활용하여 영작하시오.\n(단어: ...)",
-              "answer": "정답 문장",
-              "explanation": "구문 설명"
+              "question": "다음 우리말과 일치하도록 괄호 안의 단어를 활용하여 영작하시오.\n\n[여기에 반드시 한국어 문장을 작성. 예: 그는 그에게 수염 기르기를 멈추라고 말했다.]\n(단어: word1, word2, word3, word4, word5, word6)",
+              "answer": "정답 영문 문장",
+              "explanation": "구문/문법 설명"
             }]
          }`);
     }
@@ -423,10 +423,10 @@ app.post(["/exam", "/api/exam"], async (req, res) => {
          formatParts.push(`    {
             "type": "주관식 요약문 완성",
             "questions": [{
-              "question": "다음 글의 내용을 요약하고자 한다. 빈칸에 들어갈 말을 쓰시오.",
-              "passage": "요약문 텍스트 (빈칸 포함)",
-              "answer": "정답",
-              "explanation": "해설"
+              "question": "위 글의 내용을 한 문장으로 요약하고자 한다. 빈칸 (A)와 (B)에 들어갈 말을 본문에서 찾아 쓰시오.",
+              "passage": "본문을 한 문장으로 요약한 새로운 요약문. 빈칸 두 개를 (A), (B) 형식으로 표시. 본문 문장을 그대로 복사하지 말 것. 같은 문장을 절대 두 번 반복하지 말 것. 길이는 30~60단어 1문장.",
+              "answer": "(A) word1 / (B) word2",
+              "explanation": "왜 그 단어가 정답인지 해설"
             }]
          }`);
     }
@@ -450,6 +450,22 @@ ${jsonFormat}
 2. 문장 삽입 문제는 반드시 passage 필드에 ①~⑤ 번호가 적힌 지문을 보내야 합니다.
 3. 선택지(choices)는 절대 중복되어서는 안 됩니다. 5개의 서로 다른 선택지를 만드세요.
 4. JSON 형식만 출력하세요.
+5. 주관식 요약문 완성 문제는 다음 규칙을 반드시 지키세요:
+   - passage 필드에는 본문 전체가 아니라 **본문을 압축한 한 문장(30~60단어) 요약문**만 작성합니다.
+   - 요약문 안에 **빈칸 두 개를 (A), (B) 형식으로 표시**합니다. 언더스코어(___)는 사용하지 마세요.
+   - **본문 문장을 그대로 복사 금지**, **같은 문장을 두 번 반복 금지**, **questions 배열에 같은 내용 중복 금지**.
+   - answer 필드는 "(A) word1 / (B) word2" 형식.
+6. 주관식 영작 문제는 question 필드에 반드시 **세 부분**을 모두 포함해야 합니다:
+   (1) 지시문: "다음 우리말과 일치하도록 괄호 안의 단어를 활용하여 영작하시오."
+   (2) **한국어 우리말 문장** (절대 누락 금지, 영어로 쓰지 말 것)
+   (3) 괄호 안 단어 목록: "(단어: word1, word2, ...)"
+   - 세 부분은 줄바꿈(\n\n / \n)으로 구분합니다.
+   - 우리말 문장은 answer 필드의 영문 정답과 의미가 일치해야 합니다.
+7. 문장 순서 배열 문제는 passage 필드에 반드시 **두 부분**을 모두 포함해야 합니다 (이 유형이 단독 출제되더라도 동일):
+   (1) **'주어진 글' (도입부)**: 원문 시작부의 1~2문장을 라벨 없이 그대로 작성. 절대 누락 금지.
+   (2) **(A), (B), (C) 3개 문단**: 본문 나머지를 세 문단으로 나누어 (A), (B), (C) 라벨을 붙여 무작위 순서로 배치.
+   - 두 부분 사이는 줄바꿈 두 번(\n\n)으로 구분.
+   - 절대 (A)/(B)/(C)만 출력하지 마세요. 도입부 1~2문장이 반드시 먼저 와야 합니다.
 `.trim();
 
     const aiResp = await generativeModel.generateContent({
